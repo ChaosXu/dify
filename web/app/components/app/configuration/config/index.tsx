@@ -2,12 +2,13 @@
 import type { FC } from 'react'
 import React from 'react'
 import { useContext } from 'use-context-selector'
-import produce from 'immer'
+import { produce } from 'immer'
 import { useFormattingChangedDispatcher } from '../debug/hooks'
 import DatasetConfig from '../dataset-config'
 import HistoryPanel from '../config-prompt/conversation-history/history-panel'
 import ConfigVision from '../config-vision'
 import ConfigDocument from './config-document'
+import ConfigAudio from './config-audio'
 import AgentTools from './agent/agent-tools'
 import ConfigContext from '@/context/debug-configuration'
 import ConfigPrompt from '@/app/components/app/configuration/config-prompt'
@@ -57,7 +58,7 @@ const Config: FC = () => {
   return (
     <>
       <div
-        className="grow h-0 relative px-6 pb-[50px] overflow-y-auto"
+        className="relative h-0 grow overflow-y-auto px-6 pb-[50px]"
       >
         {/* Template */}
         <ConfigPrompt
@@ -84,6 +85,8 @@ const Config: FC = () => {
         <ConfigVision />
 
         <ConfigDocument />
+
+        <ConfigAudio />
 
         {/* Chat History */}
         {isAdvancedMode && isChatApp && modelModeType === ModelModeType.completion && (

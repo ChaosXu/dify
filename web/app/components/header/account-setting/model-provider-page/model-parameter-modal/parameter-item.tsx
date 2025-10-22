@@ -37,7 +37,7 @@ const ParameterItem: FC<ParameterItemProps> = ({
     if (parameterRule.type === 'int' || parameterRule.type === 'float')
       defaultValue = isNullOrUndefined(parameterRule.default) ? (parameterRule.min || 0) : parameterRule.default
     else if (parameterRule.type === 'string' || parameterRule.type === 'text')
-      defaultValue = parameterRule.options?.length ? (parameterRule.default || '') : (parameterRule.default || '')
+      defaultValue = parameterRule.default || ''
     else if (parameterRule.type === 'boolean')
       defaultValue = !isNullOrUndefined(parameterRule.default) ? parameterRule.default : false
     else if (parameterRule.type === 'tag')
@@ -91,8 +91,8 @@ const ParameterItem: FC<ParameterItemProps> = ({
     numberInputRef.current!.value = `${num}`
   }
 
-  const handleRadioChange = (v: number) => {
-    handleInputChange(v === 1)
+  const handleRadioChange = (v: boolean) => {
+    handleInputChange(v)
   }
 
   const handleStringInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -132,8 +132,6 @@ const ParameterItem: FC<ParameterItemProps> = ({
           step = 1
         else if (parameterRule.max < 1000)
           step = 10
-        else if (parameterRule.max < 10000)
-          step = 100
       }
 
       return (
@@ -148,7 +146,7 @@ const ParameterItem: FC<ParameterItemProps> = ({
           />}
           <input
             ref={numberInputRef}
-            className='shrink-0 block ml-4 pl-3 w-16 h-8 appearance-none outline-none rounded-lg bg-components-input-bg-normal text-components-input-text-filled system-sm-regular'
+            className='system-sm-regular ml-4 block h-8 w-16 shrink-0 appearance-none rounded-lg bg-components-input-bg-normal pl-3 text-components-input-text-filled outline-none'
             type='number'
             max={parameterRule.max}
             min={parameterRule.min}
@@ -173,7 +171,7 @@ const ParameterItem: FC<ParameterItemProps> = ({
           />}
           <input
             ref={numberInputRef}
-            className='shrink-0 block ml-4 pl-3 w-16 h-8 appearance-none outline-none rounded-lg bg-components-input-bg-normal text-components-input-text-filled system-sm-regular'
+            className='system-sm-regular ml-4 block h-8 w-16 shrink-0 appearance-none rounded-lg bg-components-input-bg-normal pl-3 text-components-input-text-filled outline-none'
             type='number'
             max={parameterRule.max}
             min={parameterRule.min}
@@ -188,12 +186,12 @@ const ParameterItem: FC<ParameterItemProps> = ({
     if (parameterRule.type === 'boolean') {
       return (
         <Radio.Group
-          className='w-[178px] flex items-center'
-          value={renderValue ? 1 : 0}
+          className='flex w-[150px] items-center'
+          value={renderValue as boolean}
           onChange={handleRadioChange}
         >
-          <Radio value={1} className='w-[83px]'>True</Radio>
-          <Radio value={0} className='w-[83px]'>False</Radio>
+          <Radio value={true} className='w-[70px] px-[18px]'>True</Radio>
+          <Radio value={false} className='w-[70px] px-[18px]'>False</Radio>
         </Radio.Group>
       )
     }
@@ -201,7 +199,7 @@ const ParameterItem: FC<ParameterItemProps> = ({
     if (parameterRule.type === 'string' && !parameterRule.options?.length) {
       return (
         <input
-          className={cn(isInWorkflow ? 'w-[178px]' : 'w-full', 'ml-4 flex items-center px-3 h-8 appearance-none outline-none rounded-lg bg-components-input-bg-normal text-components-input-text-filled system-sm-regular')}
+          className={cn(isInWorkflow ? 'w-[150px]' : 'w-full', 'system-sm-regular ml-4 flex h-8 appearance-none items-center rounded-lg bg-components-input-bg-normal px-3 text-components-input-text-filled outline-none')}
           value={renderValue as string}
           onChange={handleStringInputChange}
         />
@@ -211,7 +209,7 @@ const ParameterItem: FC<ParameterItemProps> = ({
     if (parameterRule.type === 'text') {
       return (
         <textarea
-          className='w-full h-20 ml-4 px-1 rounded-lg bg-components-input-bg-normal text-components-input-text-filled system-sm-regular'
+          className='system-sm-regular ml-4 h-20 w-full rounded-lg bg-components-input-bg-normal px-1 text-components-input-text-filled'
           value={renderValue as string}
           onChange={handleStringInputChange}
         />
@@ -222,7 +220,7 @@ const ParameterItem: FC<ParameterItemProps> = ({
       return (
         <SimpleSelect
           className='!py-0'
-          wrapperClassName={cn('w-full !h-8')}
+          wrapperClassName={cn('!h-8 w-full')}
           defaultValue={renderValue as string}
           onSelect={handleSelect}
           items={parameterRule.options.map(option => ({ value: option, name: option }))}
@@ -232,12 +230,13 @@ const ParameterItem: FC<ParameterItemProps> = ({
 
     if (parameterRule.type === 'tag') {
       return (
-        <div className={cn('w-full !h-8')}>
+        <div className={cn('!h-8 w-full')}>
           <TagInput
             items={renderValue as string[]}
             onChange={handleTagChange}
             customizedConfirmKey='Tab'
             isInWorkflow={isInWorkflow}
+            required={parameterRule.required}
           />
         </div>
       )
@@ -247,9 +246,9 @@ const ParameterItem: FC<ParameterItemProps> = ({
   }
 
   return (
-    <div className='flex items-center justify-between mb-2'>
+    <div className='mb-2 flex items-center justify-between'>
       <div className='shrink-0 basis-1/2'>
-        <div className={cn('shrink-0 w-full flex items-center')}>
+        <div className={cn('flex w-full shrink-0 items-center')}>
           {
             !parameterRule.required && parameterRule.name !== 'stop' && (
               <div className='mr-2 w-7'>
@@ -262,7 +261,7 @@ const ParameterItem: FC<ParameterItemProps> = ({
             )
           }
           <div
-            className='mr-0.5 system-xs-regular text-text-secondary truncate'
+            className='system-xs-regular mr-0.5 truncate text-text-secondary'
             title={parameterRule.label[language] || parameterRule.label.en_US}
           >
             {parameterRule.label[language] || parameterRule.label.en_US}
@@ -271,7 +270,7 @@ const ParameterItem: FC<ParameterItemProps> = ({
             parameterRule.help && (
               <Tooltip
                 popupContent={(
-                  <div className='w-[178px] whitespace-pre-wrap'>{parameterRule.help[language] || parameterRule.help.en_US}</div>
+                  <div className='w-[150px] whitespace-pre-wrap'>{parameterRule.help[language] || parameterRule.help.en_US}</div>
                 )}
                 popupClassName='mr-1'
                 triggerClassName='mr-1 w-4 h-4 shrink-0'
@@ -281,7 +280,7 @@ const ParameterItem: FC<ParameterItemProps> = ({
         </div>
         {
           parameterRule.type === 'tag' && (
-            <div className={cn(!isInWorkflow && 'w-[178px]', 'text-text-tertiary system-xs-regular')}>
+            <div className={cn(!isInWorkflow && 'w-[150px]', 'system-xs-regular text-text-tertiary')}>
               {parameterRule?.tagPlaceholder?.[language]}
             </div>
           )

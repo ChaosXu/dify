@@ -98,7 +98,6 @@ const Action: FC<Props> = ({
       hideDeleteConfirm()
       onDelete()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [installationId, onDelete])
   return (
     <div className='flex space-x-1'>
@@ -107,7 +106,7 @@ const Action: FC<Props> = ({
         && (
           <Tooltip popupContent={t(`${i18nPrefix}.checkForUpdates`)}>
             <ActionButton onClick={handleFetchNewVersion}>
-              <RiLoopLeftLine className='w-4 h-4 text-text-tertiary' />
+              <RiLoopLeftLine className='h-4 w-4 text-text-tertiary' />
             </ActionButton>
           </Tooltip>
         )
@@ -117,7 +116,7 @@ const Action: FC<Props> = ({
         && (
           <Tooltip popupContent={t(`${i18nPrefix}.pluginInfo`)}>
             <ActionButton onClick={showPluginInfo}>
-              <RiInformation2Line className='w-4 h-4 text-text-tertiary' />
+              <RiInformation2Line className='h-4 w-4 text-text-tertiary' />
             </ActionButton>
           </Tooltip>
         )
@@ -127,10 +126,10 @@ const Action: FC<Props> = ({
         && (
           <Tooltip popupContent={t(`${i18nPrefix}.delete`)}>
             <ActionButton
-              className='hover:bg-state-destructive-hover text-text-tertiary hover:text-text-destructive'
+              className='text-text-tertiary hover:bg-state-destructive-hover hover:text-text-destructive'
               onClick={showDeleteConfirm}
             >
-              <RiDeleteBinLine className='w-4 h-4' />
+              <RiDeleteBinLine className='h-4 w-4' />
             </ActionButton>
           </Tooltip>
         )

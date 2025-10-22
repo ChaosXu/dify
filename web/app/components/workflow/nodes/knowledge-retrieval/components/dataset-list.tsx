@@ -1,7 +1,7 @@
 'use client'
 import type { FC } from 'react'
 import React, { useCallback, useMemo } from 'react'
-import produce from 'immer'
+import { produce } from 'immer'
 import { useTranslation } from 'react-i18next'
 import Item from './dataset-item'
 import type { DataSet } from '@/models/datasets'
@@ -70,7 +70,7 @@ const DatasetList: FC<Props> = ({
           )
         })
         : (
-          <div className='p-3 text-xs text-center text-gray-500 rounded-lg cursor-default select-none bg-gray-50'>
+          <div className='cursor-default select-none rounded-lg bg-background-section p-3 text-center text-xs text-text-tertiary'>
             {t('appDebug.datasetConfig.knowledgeTip')}
           </div>
         )

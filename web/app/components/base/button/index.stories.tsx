@@ -1,5 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react'
-import { fn } from '@storybook/test'
+import type { Meta, StoryObj } from '@storybook/nextjs'
 
 import { RocketLaunchIcon } from '@heroicons/react/20/solid'
 import { Button } from '.'
@@ -20,8 +19,7 @@ const meta = {
   },
   args: {
     variant: 'ghost',
-    onClick: fn(),
-    children: 'adsf',
+    children: 'Button',
   },
 } satisfies Meta<typeof Button>
 
@@ -33,6 +31,9 @@ export const Default: Story = {
     variant: 'primary',
     loading: false,
     children: 'Primary Button',
+    styleCss: {},
+    spinnerClassName: '',
+    destructive: false,
   },
 }
 
@@ -99,7 +100,7 @@ export const WithIcon: Story = {
     variant: 'primary',
     children: (
       <>
-        <RocketLaunchIcon className="h-4 w-4 mr-1.5 stroke-[1.8px]" />
+        <RocketLaunchIcon className="mr-1.5 h-4 w-4 stroke-[1.8px]" />
         Launch
       </>
     ),

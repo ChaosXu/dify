@@ -2,7 +2,7 @@
 import type { FC } from 'react'
 import React, { useCallback } from 'react'
 import useSWR from 'swr'
-import produce from 'immer'
+import { produce } from 'immer'
 import { useTranslation } from 'react-i18next'
 import type { UploadFileSetting } from '../../../types'
 import { SupportUploadFileTypes } from '../../../types'
@@ -150,7 +150,7 @@ const FileUploadSetting: FC<Props> = ({
           title={t('appDebug.variableConfig.maxNumberOfUploads')!}
         >
           <div>
-            <div className='mb-1.5 text-text-tertiary body-xs-regular'>{t('appDebug.variableConfig.maxNumberTip', {
+            <div className='body-xs-regular mb-1.5 text-text-tertiary'>{t('appDebug.variableConfig.maxNumberTip', {
               imgLimit: formatFileSize(imgSizeLimit),
               docLimit: formatFileSize(docSizeLimit),
               audioLimit: formatFileSize(audioSizeLimit),

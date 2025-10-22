@@ -6,6 +6,8 @@ import { useInvalidateAllBuiltInTools, useInvalidateAllToolProviders } from '@/s
 import { useInvalidateStrategyProviders } from '@/service/use-strategy'
 import type { Plugin, PluginDeclaration, PluginManifestInMarket } from '../../types'
 import { PluginType } from '../../types'
+import { useInvalidDataSourceList } from '@/service/use-pipeline'
+import { useInvalidDataSourceListAuth } from '@/service/use-datasource'
 
 const useRefreshPluginList = () => {
   const invalidateInstalledPluginList = useInvalidateInstalledPluginList()
@@ -16,6 +18,9 @@ const useRefreshPluginList = () => {
 
   const invalidateAllToolProviders = useInvalidateAllToolProviders()
   const invalidateAllBuiltInTools = useInvalidateAllBuiltInTools()
+  const invalidateAllDataSources = useInvalidDataSourceList()
+
+  const invalidateDataSourceListAuth = useInvalidDataSourceListAuth()
 
   const invalidateStrategyProviders = useInvalidateStrategyProviders()
   return {
@@ -23,17 +28,20 @@ const useRefreshPluginList = () => {
       // installed list
       invalidateInstalledPluginList()
 
-      if (!manifest) return
-
       // tool page, tool select
-      if (PluginType.tool.includes(manifest.category) || refreshAllType) {
+      if ((manifest && PluginType.tool.includes(manifest.category)) || refreshAllType) {
         invalidateAllToolProviders()
         invalidateAllBuiltInTools()
         // TODO: update suggested tools. It's a function in hook useMarketplacePlugins,handleUpdatePlugins
       }
 
+      if ((manifest && PluginType.datasource.includes(manifest.category)) || refreshAllType) {
+        invalidateAllDataSources()
+        invalidateDataSourceListAuth()
+      }
+
       // model select
-      if (PluginType.model.includes(manifest.category) || refreshAllType) {
+      if ((manifest && PluginType.model.includes(manifest.category)) || refreshAllType) {
         refreshModelProviders()
         refetchLLMModelList()
         refetchEmbeddingModelList()
@@ -41,7 +49,7 @@ const useRefreshPluginList = () => {
       }
 
       // agent select
-      if (PluginType.agent.includes(manifest.category) || refreshAllType)
+      if ((manifest && PluginType.agent.includes(manifest.category)) || refreshAllType)
         invalidateStrategyProviders()
     },
   }

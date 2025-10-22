@@ -1,8 +1,10 @@
 import decimal
-from typing import Optional
+import hashlib
+from threading import Lock
 
 from pydantic import BaseModel, ConfigDict, Field
 
+import contexts
 from core.model_runtime.entities.common_entities import I18nObject
 from core.model_runtime.entities.defaults import PARAMETER_RULE_TEMPLATE
 from core.model_runtime.entities.model_entities import (
@@ -21,9 +23,7 @@ from core.model_runtime.errors.invoke import (
     InvokeRateLimitError,
     InvokeServerUnavailableError,
 )
-from core.model_runtime.model_providers.__base.tokenizers.gpt2_tokenzier import GPT2Tokenizer
-from core.plugin.entities.plugin_daemon import PluginDaemonInnerError, PluginModelProviderEntity
-from core.plugin.manager.model import PluginModelManager
+from core.plugin.entities.plugin_daemon import PluginModelProviderEntity
 
 
 class AIModel(BaseModel):
@@ -51,6 +51,8 @@ class AIModel(BaseModel):
 
         :return: Invoke error mapping
         """
+        from core.plugin.entities.plugin_daemon import PluginDaemonInnerError
+
         return {
             InvokeConnectionError: [InvokeConnectionError],
             InvokeServerUnavailableError: [InvokeServerUnavailableError],
@@ -77,7 +79,7 @@ class AIModel(BaseModel):
                         )
                     )
                 elif isinstance(invoke_error, InvokeError):
-                    return invoke_error(description=f"[{self.provider_name}] {invoke_error.description}, {str(error)}")
+                    return InvokeError(description=f"[{self.provider_name}] {invoke_error.description}, {str(error)}")
                 else:
                     return error
 
@@ -97,7 +99,7 @@ class AIModel(BaseModel):
         model_schema = self.get_model_schema(model, credentials)
 
         # get price info from predefined model schema
-        price_config: Optional[PriceConfig] = None
+        price_config: PriceConfig | None = None
         if model_schema and model_schema.pricing:
             price_config = model_schema.pricing
 
@@ -130,7 +132,7 @@ class AIModel(BaseModel):
             currency=price_config.currency,
         )
 
-    def get_model_schema(self, model: str, credentials: Optional[dict] = None) -> Optional[AIModelEntity]:
+    def get_model_schema(self, model: str, credentials: dict | None = None) -> AIModelEntity | None:
         """
         Get model schema by model name and credentials
 
@@ -138,18 +140,40 @@ class AIModel(BaseModel):
         :param credentials: model credentials
         :return: model schema
         """
-        plugin_model_manager = PluginModelManager()
-        return plugin_model_manager.get_model_schema(
-            tenant_id=self.tenant_id,
-            user_id="unknown",
-            plugin_id=self.plugin_id,
-            provider=self.provider_name,
-            model_type=self.model_type.value,
-            model=model,
-            credentials=credentials or {},
-        )
+        from core.plugin.impl.model import PluginModelClient
 
-    def get_customizable_model_schema_from_credentials(self, model: str, credentials: dict) -> Optional[AIModelEntity]:
+        plugin_model_manager = PluginModelClient()
+        cache_key = f"{self.tenant_id}:{self.plugin_id}:{self.provider_name}:{self.model_type.value}:{model}"
+        # sort credentials
+        sorted_credentials = sorted(credentials.items()) if credentials else []
+        cache_key += ":".join([hashlib.md5(f"{k}:{v}".encode()).hexdigest() for k, v in sorted_credentials])
+
+        try:
+            contexts.plugin_model_schemas.get()
+        except LookupError:
+            contexts.plugin_model_schemas.set({})
+            contexts.plugin_model_schema_lock.set(Lock())
+
+        with contexts.plugin_model_schema_lock.get():
+            if cache_key in contexts.plugin_model_schemas.get():
+                return contexts.plugin_model_schemas.get()[cache_key]
+
+            schema = plugin_model_manager.get_model_schema(
+                tenant_id=self.tenant_id,
+                user_id="unknown",
+                plugin_id=self.plugin_id,
+                provider=self.provider_name,
+                model_type=self.model_type.value,
+                model=model,
+                credentials=credentials or {},
+            )
+
+            if schema:
+                contexts.plugin_model_schemas.get()[cache_key] = schema
+
+            return schema
+
+    def get_customizable_model_schema_from_credentials(self, model: str, credentials: dict) -> AIModelEntity | None:
         """
         Get customizable model schema from credentials
 
@@ -157,14 +181,9 @@ class AIModel(BaseModel):
         :param credentials: model credentials
         :return: model schema
         """
-        return self._get_customizable_model_schema(model, credentials)
 
-    def _get_customizable_model_schema(self, model: str, credentials: dict) -> Optional[AIModelEntity]:
-        """
-        Get customizable model schema and fill in the template
-        """
+        # get customizable model schema
         schema = self.get_customizable_model_schema(model, credentials)
-
         if not schema:
             return None
 
@@ -212,7 +231,7 @@ class AIModel(BaseModel):
 
         return schema
 
-    def get_customizable_model_schema(self, model: str, credentials: dict) -> Optional[AIModelEntity]:
+    def get_customizable_model_schema(self, model: str, credentials: dict) -> AIModelEntity | None:
         """
         Get customizable model schema
 
@@ -222,7 +241,7 @@ class AIModel(BaseModel):
         """
         return None
 
-    def _get_default_parameter_rule_variable_map(self, name: DefaultParameterName) -> dict:
+    def _get_default_parameter_rule_variable_map(self, name: DefaultParameterName):
         """
         Get default parameter rule for given name
 
@@ -235,15 +254,3 @@ class AIModel(BaseModel):
             raise Exception(f"Invalid model parameter rule name {name}")
 
         return default_parameter_rule
-
-    def _get_num_tokens_by_gpt2(self, text: str) -> int:
-        """
-        Get number of tokens for given prompt messages by gpt2
-        Some provider models do not provide an interface for obtaining the number of tokens.
-        Here, the gpt2 tokenizer is used to calculate the number of tokens.
-        This method can be executed offline, and the gpt2 tokenizer has been cached in the project.
-
-        :param text: plain text of prompt. You need to convert the original message to plain text
-        :return: number of tokens
-        """
-        return GPT2Tokenizer.get_num_tokens(text)

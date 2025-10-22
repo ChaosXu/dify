@@ -2,31 +2,27 @@
 
 import { useState } from 'react'
 import {
-  RiArrowDownSLine,
-  RiCloseCircleFill,
-  RiFilter3Line,
-} from '@remixicon/react'
-import {
   PortalToFollowElem,
   PortalToFollowElemContent,
   PortalToFollowElemTrigger,
 } from '@/app/components/base/portal-to-follow-elem'
 import Checkbox from '@/app/components/base/checkbox'
-import cn from '@/utils/classnames'
 import Input from '@/app/components/base/input'
 import { useTags } from '@/app/components/plugins/hooks'
 import { useMixedTranslation } from '@/app/components/plugins/marketplace/hooks'
+import MarketplaceTrigger from './trigger/marketplace'
+import ToolSelectorTrigger from './trigger/tool-selector'
 
 type TagsFilterProps = {
   tags: string[]
   onTagsChange: (tags: string[]) => void
-  size: 'small' | 'large'
+  usedInMarketplace?: boolean
   locale?: string
 }
 const TagsFilter = ({
   tags,
   onTagsChange,
-  size,
+  usedInMarketplace = false,
   locale,
 }: TagsFilterProps) => {
   const { t } = useMixedTranslation(locale)
@@ -56,52 +52,32 @@ const TagsFilter = ({
         className='shrink-0'
         onClick={() => setOpen(v => !v)}
       >
-        <div className={cn(
-          'flex items-center text-text-tertiary rounded-lg hover:bg-state-base-hover cursor-pointer',
-          size === 'large' && 'px-2 py-1 h-8',
-          size === 'small' && 'pr-1.5 py-0.5 h-7 pl-1 ',
-          selectedTagsLength && 'text-text-secondary',
-          open && 'bg-state-base-hover',
-        )}>
-          <div className='p-0.5'>
-            <RiFilter3Line className='w-4 h-4' />
-          </div>
-          <div className={cn(
-            'flex items-center p-1 system-sm-medium',
-            size === 'large' && 'p-1',
-            size === 'small' && 'px-0.5 py-1',
-          )}>
-            {
-              !selectedTagsLength && t('pluginTags.allTags')
-            }
-            {
-              !!selectedTagsLength && tags.map(tag => tagsMap[tag].label).slice(0, 2).join(',')
-            }
-            {
-              selectedTagsLength > 2 && (
-                <div className='ml-1 system-xs-medium text-text-tertiary'>
-                  +{selectedTagsLength - 2}
-                </div>
-              )
-            }
-          </div>
-          {
-            !!selectedTagsLength && (
-              <RiCloseCircleFill
-                className='w-4 h-4 text-text-quaternary cursor-pointer'
-                onClick={() => onTagsChange([])}
-              />
-            )
-          }
-          {
-            !selectedTagsLength && (
-              <RiArrowDownSLine className='w-4 h-4' />
-            )
-          }
-        </div>
+        {
+          usedInMarketplace && (
+            <MarketplaceTrigger
+              selectedTagsLength={selectedTagsLength}
+              open={open}
+              tags={tags}
+              tagsMap={tagsMap}
+              locale={locale}
+              onTagsChange={onTagsChange}
+            />
+          )
+        }
+        {
+          !usedInMarketplace && (
+            <ToolSelectorTrigger
+              selectedTagsLength={selectedTagsLength}
+              open={open}
+              tags={tags}
+              tagsMap={tagsMap}
+              onTagsChange={onTagsChange}
+            />
+          )
+        }
       </PortalToFollowElemTrigger>
       <PortalToFollowElemContent className='z-[1000]'>
-        <div className='w-[240px] border-[0.5px] border-components-panel-border bg-components-panel-bg-blur rounded-xl shadow-lg'>
+        <div className='w-[240px] rounded-xl border-[0.5px] border-components-panel-border bg-components-panel-bg-blur shadow-lg backdrop-blur-sm'>
           <div className='p-2 pb-1'>
             <Input
               showLeftIcon
@@ -110,19 +86,19 @@ const TagsFilter = ({
               placeholder={t('pluginTags.searchTags') || ''}
             />
           </div>
-          <div className='p-1 max-h-[448px] overflow-y-auto'>
+          <div className='max-h-[448px] overflow-y-auto p-1'>
             {
               filteredOptions.map(option => (
                 <div
                   key={option.name}
-                  className='flex items-center px-2 py-1.5 h-7 rounded-lg cursor-pointer hover:bg-state-base-hover'
+                  className='flex h-7 cursor-pointer select-none items-center rounded-lg px-2 py-1.5 hover:bg-state-base-hover'
                   onClick={() => handleCheck(option.name)}
                 >
                   <Checkbox
                     className='mr-1'
                     checked={tags.includes(option.name)}
                   />
-                  <div className='px-1 system-sm-medium text-text-secondary'>
+                  <div className='system-sm-medium px-1 text-text-secondary'>
                     {option.label}
                   </div>
                 </div>

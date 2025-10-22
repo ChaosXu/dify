@@ -1,6 +1,6 @@
 import React, { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import produce from 'immer'
+import { produce } from 'immer'
 import { Citations } from '@/app/components/base/icons/src/vender/features'
 import FeatureCard from '@/app/components/base/features/new-feature-panel/feature-card'
 import { useFeatures, useFeaturesStore } from '@/app/components/base/features/hooks'
@@ -40,8 +40,8 @@ const Citation = ({
   return (
     <FeatureCard
       icon={
-        <div className='shrink-0 p-1 rounded-lg border-[0.5px] border-divider-subtle shadow-xs bg-util-colors-warning-warning-500'>
-          <Citations className='w-4 h-4 text-text-primary-on-surface' />
+        <div className='shrink-0 rounded-lg border-[0.5px] border-divider-subtle bg-util-colors-warning-warning-500 p-1 shadow-xs'>
+          <Citations className='h-4 w-4 text-text-primary-on-surface' />
         </div>
       }
       title={t('appDebug.feature.citation.title')}

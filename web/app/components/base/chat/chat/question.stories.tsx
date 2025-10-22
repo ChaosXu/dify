@@ -1,4 +1,4 @@
-import type { Meta, StoryObj } from '@storybook/react'
+import type { Meta, StoryObj } from '@storybook/nextjs'
 
 import type { ChatItem } from '../types'
 import Question from './question'
@@ -26,8 +26,8 @@ export const Default: Story = {
       content: 'You are a helpful assistant.',
     } satisfies ChatItem,
     theme: undefined,
-    questionIcon: <div className='w-full h-full rounded-full border-[0.5px] border-black/5'>
-      <User className='w-full h-full' />
+    questionIcon: <div className='h-full w-full rounded-full border-[0.5px] border-black/5'>
+      <User className='h-full w-full' />
     </div>,
   },
 }

@@ -13,14 +13,22 @@ import type {
 import { BlockEnum } from '@/app/components/workflow/types'
 import { hasRetryNode } from '@/app/components/workflow/utils'
 import { IterationLogTrigger } from '@/app/components/workflow/run/iteration-log'
+import { LoopLogTrigger } from '@/app/components/workflow/run/loop-log'
 import { RetryLogTrigger } from '@/app/components/workflow/run/retry-log'
 import { AgentLogTrigger } from '@/app/components/workflow/run/agent-log'
+import LargeDataAlert from '../variable-inspect/large-data-alert'
 
-type ResultPanelProps = {
+export type ResultPanelProps = {
   nodeInfo?: NodeTracing
   inputs?: string
+  inputs_truncated?: boolean
   process_data?: string
-  outputs?: string
+  process_data_truncated?: boolean
+  outputs?: string | Record<string, any>
+  outputs_truncated?: boolean
+  outputs_full_content?: {
+    download_url: string
+  }
   status: string
   error?: string
   elapsed_time?: number
@@ -33,6 +41,7 @@ type ResultPanelProps = {
   exceptionCounts?: number
   execution_metadata?: any
   handleShowIterationResultList?: (detail: NodeTracing[][], iterDurationMap: any) => void
+  handleShowLoopResultList?: (detail: NodeTracing[][], loopDurationMap: any) => void
   onShowRetryDetail?: (detail: NodeTracing[]) => void
   handleShowAgentOrToolLog?: (detail?: AgentLogItemWithChildren) => void
 }
@@ -40,8 +49,12 @@ type ResultPanelProps = {
 const ResultPanel: FC<ResultPanelProps> = ({
   nodeInfo,
   inputs,
+  inputs_truncated,
   process_data,
+  process_data_truncated,
   outputs,
+  outputs_truncated,
+  outputs_full_content,
   status,
   error,
   elapsed_time,
@@ -53,11 +66,13 @@ const ResultPanel: FC<ResultPanelProps> = ({
   exceptionCounts,
   execution_metadata,
   handleShowIterationResultList,
+  handleShowLoopResultList,
   onShowRetryDetail,
   handleShowAgentOrToolLog,
 }) => {
   const { t } = useTranslation()
   const isIterationNode = nodeInfo?.node_type === BlockEnum.Iteration && !!nodeInfo?.details?.length
+  const isLoopNode = nodeInfo?.node_type === BlockEnum.Loop && !!nodeInfo?.details?.length
   const isRetryNode = hasRetryNode(nodeInfo?.node_type) && !!nodeInfo?.retryDetail?.length
   const isAgentNode = nodeInfo?.node_type === BlockEnum.Agent && !!nodeInfo?.agentLog?.length
   const isToolNode = nodeInfo?.node_type === BlockEnum.Tool && !!nodeInfo?.agentLog?.length
@@ -83,6 +98,14 @@ const ResultPanel: FC<ResultPanelProps> = ({
           )
         }
         {
+          isLoopNode && handleShowLoopResultList && (
+            <LoopLogTrigger
+              nodeInfo={nodeInfo}
+              onShowLoopResultList={handleShowLoopResultList}
+            />
+          )
+        }
+        {
           isRetryNode && onShowRetryDetail && (
             <RetryLogTrigger
               nodeInfo={nodeInfo}
@@ -99,13 +122,14 @@ const ResultPanel: FC<ResultPanelProps> = ({
           )
         }
       </div>
-      <div className='px-4 py-2 flex flex-col gap-2'>
+      <div className='flex flex-col gap-2 px-4 py-2'>
         <CodeEditor
           readOnly
           title={<div>{t('workflow.common.input').toLocaleUpperCase()}</div>}
           language={CodeLanguage.json}
           value={inputs}
           isJSONStringifyBeauty
+          footer={inputs_truncated && <LargeDataAlert textHasNoExport className='mx-1 mb-1 mt-2 h-7' />}
         />
         {process_data && (
           <CodeEditor
@@ -114,6 +138,7 @@ const ResultPanel: FC<ResultPanelProps> = ({
             language={CodeLanguage.json}
             value={process_data}
             isJSONStringifyBeauty
+            footer={process_data_truncated && <LargeDataAlert textHasNoExport className='mx-1 mb-1 mt-2 h-7' />}
           />
         )}
         {(outputs || status === 'running') && (
@@ -124,11 +149,12 @@ const ResultPanel: FC<ResultPanelProps> = ({
             value={outputs}
             isJSONStringifyBeauty
             tip={<ErrorHandleTip type={execution_metadata?.error_strategy} />}
+            footer={outputs_truncated && <LargeDataAlert textHasNoExport downloadUrl={outputs_full_content?.download_url} className='mx-1 mb-1 mt-2 h-7' />}
           />
         )}
       </div>
       <div className='px-4 py-2'>
-        <div className='h-[0.5px] divider-subtle' />
+        <div className='divider-subtle h-[0.5px]' />
       </div>
       <div className='px-4 py-2'>
         <MetaData

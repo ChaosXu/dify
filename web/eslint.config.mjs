@@ -2,22 +2,16 @@ import {
   GLOB_TESTS, combine, javascript, node,
   stylistic, typescript, unicorn,
 } from '@antfu/eslint-config'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import js from '@eslint/js'
-import { FlatCompat } from '@eslint/eslintrc'
 import globals from 'globals'
 import storybook from 'eslint-plugin-storybook'
-import { fixupConfigRules } from '@eslint/compat'
+// import { fixupConfigRules } from '@eslint/compat'
 import tailwind from 'eslint-plugin-tailwindcss'
+import reactHooks from 'eslint-plugin-react-hooks'
+import sonar from 'eslint-plugin-sonarjs'
+import oxlint from 'eslint-plugin-oxlint'
+import next from '@next/eslint-plugin-next'
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-  recommendedConfig: js.configs.recommended,
-  allConfig: js.configs.all,
-})
+// import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default combine(
   stylistic({
@@ -46,7 +40,6 @@ export default combine(
       'style/brace-style': ['error', 'stroustrup', { allowSingleLine: true }],
       'style/dot-location': ['error', 'property'],
       'style/object-curly-newline': ['error', { consistent: true, multiline: true }],
-      'style/object-property-newline': ['error', { allowMultiplePropertiesPerLine: true }],
       'style/template-curly-spacing': ['error', 'never'],
       'style/keyword-spacing': 'off',
 
@@ -71,14 +64,14 @@ export default combine(
   }),
   unicorn(),
   node(),
-  // use nextjs config will break @eslint/config-inspector
-  // use `ESLINT_CONFIG_INSPECTOR=true pnpx @eslint/config-inspector` to check the config
-  ...process.env.ESLINT_CONFIG_INSPECTOR
-    ? []
-    // TODO: remove this when upgrade to nextjs 15
-    : fixupConfigRules(compat.extends('next')),
+  // Next.js configuration
   {
+    plugins: {
+      '@next/next': next,
+    },
     rules: {
+      ...next.configs.recommended.rules,
+      ...next.configs['core-web-vitals'].rules,
       // performance issue, and not used.
       '@next/next/no-html-link-for-pages': 'off',
     },
@@ -86,13 +79,13 @@ export default combine(
   {
     ignores: [
       '**/node_modules/*',
-      '**/node_modules/',
       '**/dist/',
       '**/build/',
       '**/out/',
       '**/.next/',
       '**/public/*',
       '**/*.json',
+      '**/*.js',
     ],
   },
   {
@@ -128,6 +121,9 @@ export default combine(
       // antfu migrate to eslint-plugin-unused-imports
       'unused-imports/no-unused-vars': 'warn',
       'unused-imports/no-unused-imports': 'warn',
+
+      // We use `import { noop } from 'lodash-es'` across `web` project
+      'no-empty-function': 'error',
     },
 
     languageOptions: {
@@ -141,7 +137,55 @@ export default combine(
     },
   },
   storybook.configs['flat/recommended'],
-  // need futher research
+  // reactRefresh.configs.recommended,
+  {
+    rules: reactHooks.configs.recommended.rules,
+    plugins: {
+      'react-hooks': reactHooks,
+    },
+  },
+  // sonar
+  {
+    rules: {
+      ...sonar.configs.recommended.rules,
+      // code complexity
+      'sonarjs/cognitive-complexity': 'off',
+      'sonarjs/no-nested-functions': 'warn',
+      'sonarjs/no-nested-conditional': 'warn',
+      'sonarjs/nested-control-flow': 'warn', // 3 levels of nesting
+      'sonarjs/no-small-switch': 'off',
+      'sonarjs/no-nested-template-literals': 'warn',
+      'sonarjs/redundant-type-aliases': 'off',
+      'sonarjs/regex-complexity': 'warn',
+      // maintainability
+      'sonarjs/no-ignored-exceptions': 'off',
+      'sonarjs/no-commented-code': 'warn',
+      'sonarjs/no-unused-vars': 'warn',
+      'sonarjs/prefer-single-boolean-return': 'warn',
+      'sonarjs/duplicates-in-character-class': 'off',
+      'sonarjs/single-char-in-character-classes': 'off',
+      'sonarjs/anchor-precedence': 'warn',
+      'sonarjs/updated-loop-counter': 'off',
+      'sonarjs/no-dead-store': 'error',
+      'sonarjs/no-duplicated-branches': 'warn',
+      'sonarjs/max-lines': 'warn', // max 1000 lines
+      'sonarjs/no-variable-usage-before-declaration': 'error',
+      // security
+
+      'sonarjs/no-hardcoded-passwords': 'off', // detect the wrong code that is not password.
+      'sonarjs/no-hardcoded-secrets': 'off',
+      'sonarjs/pseudo-random': 'off',
+      // performance
+      'sonarjs/slow-regex': 'warn',
+      // others
+      'sonarjs/todo-tag': 'warn',
+      'sonarjs/table-header': 'off',
+    },
+    plugins: {
+      sonarjs: sonar,
+    },
+  },
+  // need further research
   {
     rules: {
       // not exist in old version
@@ -149,7 +193,14 @@ export default combine(
       'node/prefer-global/process': 'off',
       'node/prefer-global/buffer': 'off',
       'node/no-callback-literal': 'off',
+      'eslint-comments/no-unused-disable': 'off',
+      'tailwindcss/no-arbitrary-value': 'off',
+      'tailwindcss/classnames-order': 'off',
+      'style/indent': ['error', 2, {
+        SwitchCase: 1,
+        ignoreComments: true,
 
+      }],
       // useful, but big change
       'unicorn/prefer-number-properties': 'warn',
       'unicorn/no-new-array': 'warn',
@@ -169,15 +220,41 @@ export default combine(
   },
   tailwind.configs['flat/recommended'],
   {
+    settings: {
+      tailwindcss: {
+        // These are the default values but feel free to customize
+        callees: ['classnames', 'clsx', 'ctl', 'cn', 'classNames'],
+        config: 'tailwind.config.js', // returned from `loadConfig()` utility if not provided
+        cssFiles: [
+          '**/*.css',
+          '!**/node_modules',
+          '!**/.*',
+          '!**/dist',
+          '!**/build',
+          '!**/.storybook',
+          '!**/.next',
+          '!**/.public',
+        ],
+        cssFilesRefreshRate: 5_000,
+        removeDuplicates: true,
+        skipClassAttribute: false,
+        whitelist: [],
+        tags: [], // can be set to e.g. ['tw'] for use in tw`bg-blue`
+        classRegex: '^class(Name)?$', // can be modified to support custom attributes. E.g. "^tw$" for `twin.macro`
+      },
+    },
     rules: {
       // due to 1k lines of tailwind config, these rule have performance issue
       'tailwindcss/no-contradicting-classname': 'off',
-      'tailwindcss/no-unnecessary-arbitrary-value': 'off',
       'tailwindcss/enforces-shorthand': 'off',
       'tailwindcss/no-custom-classname': 'off',
+      'tailwindcss/no-unnecessary-arbitrary-value': 'off',
 
-      // in the future
-      'tailwindcss/classnames-order': 'off',
+      'tailwindcss/no-arbitrary-value': 'off',
+      'tailwindcss/classnames-order': 'warn',
+      'tailwindcss/enforces-negative-arbitrary-values': 'warn',
+      'tailwindcss/migration-from-tailwind-2': 'warn',
     },
   },
+  oxlint.configs['flat/recommended'],
 )

@@ -6,7 +6,10 @@ This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next
 
 ### Run by source code
 
-To start the web frontend service, you will need [Node.js v18.x (LTS)](https://nodejs.org/en) and [pnpm version 9.12.2](https://pnpm.io).
+Before starting the web frontend service, please make sure the following environment is ready.
+
+- [Node.js](https://nodejs.org) >= v22.11.x
+- [pnpm](https://pnpm.io) v10.x
 
 First, install the dependencies:
 
@@ -70,6 +73,8 @@ If you want to customize the host and port:
 pnpm run start --port=3001 --host=0.0.0.0
 ```
 
+If you want to customize the number of instances launched by PM2, you can configure `PM2_INSTANCES` in `docker-compose.yaml` or `Dockerfile`.
+
 ## Storybook
 
 This project uses [Storybook](https://storybook.js.org/) for UI component development.
@@ -99,11 +104,9 @@ pnpm run test
 ```
 
 If you are not familiar with writing tests, here is some code to refer to:
-* [classnames.spec.ts](./utils/classnames.spec.ts)
-* [index.spec.tsx](./app/components/base/button/index.spec.tsx)
 
-
-
+- [classnames.spec.ts](./utils/classnames.spec.ts)
+- [index.spec.tsx](./app/components/base/button/index.spec.tsx)
 
 ## Documentation
 

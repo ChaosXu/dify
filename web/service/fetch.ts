@@ -2,7 +2,9 @@ import type { AfterResponseHook, BeforeErrorHook, BeforeRequestHook, Hooks } fro
 import ky from 'ky'
 import type { IOtherOptions } from './base'
 import Toast from '@/app/components/base/toast'
-import { API_PREFIX, MARKETPLACE_API_PREFIX, PUBLIC_API_PREFIX } from '@/config'
+import { API_PREFIX, APP_VERSION, CSRF_COOKIE_NAME, CSRF_HEADER_NAME, MARKETPLACE_API_PREFIX, PASSPORT_HEADER_NAME, PUBLIC_API_PREFIX, WEB_APP_SHARE_CODE_HEADER_NAME } from '@/config'
+import Cookies from 'js-cookie'
+import { getWebAppAccessToken, getWebAppPassport } from './webapp-auth'
 
 const TIME_OUT = 100000
 
@@ -34,7 +36,7 @@ export type ResponseError = {
 const afterResponseErrorCode = (otherOptions: IOtherOptions): AfterResponseHook => {
   return async (_request, _options, response) => {
     const clonedResponse = response.clone()
-    if (!/^(2|3)\d{2}$/.test(String(clonedResponse.status))) {
+    if (!/^([23])\d{2}$/.test(String(clonedResponse.status))) {
       const bodyJson = clonedResponse.json() as Promise<ResponseError>
       switch (clonedResponse.status) {
         case 403:
@@ -67,45 +69,15 @@ const beforeErrorToast = (otherOptions: IOtherOptions): BeforeErrorHook => {
   }
 }
 
-export const getPublicToken = () => {
-  let token = ''
-  const sharedToken = globalThis.location.pathname.split('/').slice(-1)[0]
-  const accessToken = localStorage.getItem('token') || JSON.stringify({ [sharedToken]: '' })
-  let accessTokenJson = { [sharedToken]: '' }
-  try {
-    accessTokenJson = JSON.parse(accessToken)
-  }
-  catch { }
-  token = accessTokenJson[sharedToken]
-  return token || ''
-}
-
-export function getAccessToken(isPublicAPI?: boolean) {
-  if (isPublicAPI) {
-    const sharedToken = globalThis.location.pathname.split('/').slice(-1)[0]
-    const accessToken = localStorage.getItem('token') || JSON.stringify({ [sharedToken]: '' })
-    let accessTokenJson = { [sharedToken]: '' }
-    try {
-      accessTokenJson = JSON.parse(accessToken)
-    }
-    catch (e) {
-
-    }
-    return accessTokenJson[sharedToken]
-  }
-  else {
-    return localStorage.getItem('console_token') || ''
-  }
-}
-
-const beforeRequestPublicAuthorization: BeforeRequestHook = (request) => {
-  const token = getAccessToken(true)
-  request.headers.set('Authorization', `Bearer ${token}`)
-}
-
-const beforeRequestAuthorization: BeforeRequestHook = (request) => {
-  const accessToken = getAccessToken()
-  request.headers.set('Authorization', `Bearer ${accessToken}`)
+const beforeRequestPublicWithCode = (request: Request) => {
+  request.headers.set('Authorization', `Bearer ${getWebAppAccessToken()}`)
+  const shareCode = globalThis.location.pathname.split('/').filter(Boolean).pop() || ''
+  // some pages does not end with share code, so we need to check it
+  // TODO: maybe find a better way to access app code?
+  if (shareCode === 'webapp-signin' || shareCode === 'check-code')
+    return
+  request.headers.set(WEB_APP_SHARE_CODE_HEADER_NAME, shareCode)
+  request.headers.set(PASSPORT_HEADER_NAME, getWebAppPassport(shareCode))
 }
 
 const baseHooks: Hooks = {
@@ -119,7 +91,7 @@ const baseClient = ky.create({
   timeout: TIME_OUT,
 })
 
-export const baseOptions: RequestInit = {
+export const getBaseOptions = (): RequestInit => ({
   method: 'GET',
   mode: 'cors',
   credentials: 'include', // always send cookies、HTTP Basic authentication.
@@ -127,9 +99,10 @@ export const baseOptions: RequestInit = {
     'Content-Type': ContentType.json,
   }),
   redirect: 'follow',
-}
+})
 
 async function base<T>(url: string, options: FetchOptionType = {}, otherOptions: IOtherOptions = {}): Promise<T> {
+  const baseOptions = getBaseOptions()
   const { params, body, headers, ...init } = Object.assign({}, baseOptions, options)
   const {
     isPublicAPI = false,
@@ -140,12 +113,13 @@ async function base<T>(url: string, options: FetchOptionType = {}, otherOptions:
     getAbortController,
   } = otherOptions
 
-  const base
-    = isMarketplaceAPI
-      ? MARKETPLACE_API_PREFIX
-      : isPublicAPI
-        ? PUBLIC_API_PREFIX
-        : API_PREFIX
+  let base: string
+  if (isMarketplaceAPI)
+    base = MARKETPLACE_API_PREFIX
+  else if (isPublicAPI)
+    base = PUBLIC_API_PREFIX
+  else
+    base = API_PREFIX
 
   if (getAbortController) {
     const abortController = new AbortController()
@@ -153,10 +127,16 @@ async function base<T>(url: string, options: FetchOptionType = {}, otherOptions:
     options.signal = abortController.signal
   }
 
-  const fetchPathname = `${base}${url.startsWith('/') ? url : `/${url}`}`
+  const fetchPathname = base + (url.startsWith('/') ? url : `/${url}`)
+  if (!isMarketplaceAPI)
+    (headers as any).set(CSRF_HEADER_NAME, Cookies.get(CSRF_COOKIE_NAME()) || '')
 
   if (deleteContentType)
     (headers as any).delete('Content-Type')
+
+  // ! For Marketplace API, help to filter tags added in new version
+  if (isMarketplaceAPI)
+    (headers as any).set('X-Dify-Version', APP_VERSION)
 
   const client = baseClient.extend({
     hooks: {
@@ -167,9 +147,8 @@ async function base<T>(url: string, options: FetchOptionType = {}, otherOptions:
       ],
       beforeRequest: [
         ...baseHooks.beforeRequest || [],
-        isPublicAPI && beforeRequestPublicAuthorization,
-        !isPublicAPI && !isMarketplaceAPI && beforeRequestAuthorization,
-      ].filter(Boolean),
+        isPublicAPI && beforeRequestPublicWithCode,
+      ].filter((h): h is BeforeRequestHook => Boolean(h)),
       afterResponse: [
         ...baseHooks.afterResponse || [],
         afterResponseErrorCode(otherOptions),
@@ -188,6 +167,16 @@ async function base<T>(url: string, options: FetchOptionType = {}, otherOptions:
     },
     ...(bodyStringify ? { json: body } : { body: body as BodyInit }),
     searchParams: params,
+    fetch(resource: RequestInfo | URL, options?: RequestInit) {
+      if (resource instanceof Request && options) {
+        const mergedHeaders = new Headers(options.headers || {})
+        resource.headers.forEach((value, key) => {
+          mergedHeaders.append(key, value)
+        })
+        options.headers = mergedHeaders
+      }
+      return globalThis.fetch(resource, options)
+    },
   })
 
   if (needAllResponseContent)

@@ -1,14 +1,14 @@
 import React, { type FC, useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { RiDeleteBinLine, RiEditLine } from '@remixicon/react'
-import { StatusItem } from '../../../list'
-import { useDocumentContext } from '../../index'
+import StatusItem from '../../../status-item'
+import { useDocumentContext } from '../../context'
 import ChildSegmentList from '../child-segment-list'
 import Tag from '../common/tag'
 import Dot from '../common/dot'
 import { SegmentIndexTag } from '../common/segment-index-tag'
 import ParentChunkCardSkeleton from '../skeleton/parent-chunk-card-skeleton'
-import type { ChildChunkDetail, SegmentDetailModel } from '@/models/datasets'
+import { type ChildChunkDetail, ChunkingMode, type SegmentDetailModel } from '@/models/datasets'
 import Switch from '@/app/components/base/switch'
 import Divider from '@/app/components/base/divider'
 import { formatNumber } from '@/utils/format'
@@ -69,50 +69,48 @@ const SegmentCard: FC<ISegmentCardProps> = ({
     updated_at,
   } = detail as Required<ISegmentCardProps>['detail']
   const [showModal, setShowModal] = useState(false)
-  const mode = useDocumentContext(s => s.mode)
+  const docForm = useDocumentContext(s => s.docForm)
   const parentMode = useDocumentContext(s => s.parentMode)
 
   const isGeneralMode = useMemo(() => {
-    return mode === 'custom'
-  }, [mode])
+    return docForm === ChunkingMode.text
+  }, [docForm])
 
   const isParentChildMode = useMemo(() => {
-    return mode === 'hierarchical'
-  }, [mode])
+    return docForm === ChunkingMode.parentChild
+  }, [docForm])
 
   const isParagraphMode = useMemo(() => {
-    return mode === 'hierarchical' && parentMode === 'paragraph'
-  }, [mode, parentMode])
+    return docForm === ChunkingMode.parentChild && parentMode === 'paragraph'
+  }, [docForm, parentMode])
 
   const isFullDocMode = useMemo(() => {
-    return mode === 'hierarchical' && parentMode === 'full-doc'
-  }, [mode, parentMode])
+    return docForm === ChunkingMode.parentChild && parentMode === 'full-doc'
+  }, [docForm, parentMode])
 
   const chunkEdited = useMemo(() => {
-    if (mode === 'hierarchical' && parentMode === 'full-doc')
+    if (docForm === ChunkingMode.parentChild && parentMode === 'full-doc')
       return false
     return isAfter(updated_at * 1000, created_at * 1000)
-  }, [mode, parentMode, updated_at, created_at])
+  }, [docForm, parentMode, updated_at, created_at])
 
   const contentOpacity = useMemo(() => {
     return (enabled || focused.segmentContent) ? '' : 'opacity-50 group-hover/card:opacity-100'
   }, [enabled, focused.segmentContent])
 
   const handleClickCard = useCallback(() => {
-    if (mode !== 'hierarchical' || parentMode !== 'full-doc')
+    if (docForm !== ChunkingMode.parentChild || parentMode !== 'full-doc')
       onClick?.()
-  }, [mode, parentMode, onClick])
+  }, [docForm, parentMode, onClick])
 
   const wordCountText = useMemo(() => {
     const total = formatNumber(word_count)
     return `${total} ${t('datasetDocuments.segment.characters', { count: word_count })}`
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [word_count])
+  }, [word_count, t])
 
   const labelPrefix = useMemo(() => {
     return isParentChildMode ? t('datasetDocuments.segment.parentChunk') : t('datasetDocuments.segment.chunk')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isParentChildMode])
+  }, [isParentChildMode, t])
 
   if (loading)
     return <ParentChunkCardSkeleton />
@@ -120,14 +118,14 @@ const SegmentCard: FC<ISegmentCardProps> = ({
   return (
     <div
       className={cn(
-        'w-full px-3 rounded-xl group/card',
-        isFullDocMode ? '' : 'pt-2.5 pb-2 hover:bg-dataset-chunk-detail-card-hover-bg',
+        'chunk-card group/card w-full rounded-xl px-3',
+        isFullDocMode ? '' : 'pb-2 pt-2.5 hover:bg-dataset-chunk-detail-card-hover-bg',
         focused.segmentContent ? 'bg-dataset-chunk-detail-card-hover-bg' : '',
         className,
       )}
       onClick={handleClickCard}
     >
-      <div className='h-5 relative flex items-center justify-between'>
+      <div className='relative flex h-5 items-center justify-between'>
         <>
           <div className='flex items-center gap-x-2'>
             <SegmentIndexTag
@@ -139,9 +137,9 @@ const SegmentCard: FC<ISegmentCardProps> = ({
               labelPrefix={labelPrefix}
             />
             <Dot />
-            <div className={cn('text-text-tertiary system-xs-medium', contentOpacity)}>{wordCountText}</div>
+            <div className={cn('system-xs-medium text-text-tertiary', contentOpacity)}>{wordCountText}</div>
             <Dot />
-            <div className={cn('text-text-tertiary system-xs-medium', contentOpacity)}>{`${formatNumber(hit_count)} ${t('datasetDocuments.segment.hitCount')}`}</div>
+            <div className={cn('system-xs-medium text-text-tertiary', contentOpacity)}>{`${formatNumber(hit_count)} ${t('datasetDocuments.segment.hitCount')}`}</div>
             {chunkEdited && (
               <>
                 <Dot />
@@ -153,8 +151,8 @@ const SegmentCard: FC<ISegmentCardProps> = ({
             ? <div className='flex items-center'>
               <StatusItem status={enabled ? 'enabled' : 'disabled'} reverse textCls="text-text-tertiary system-xs-regular" />
               {embeddingAvailable && (
-                <div className="absolute -top-2 -right-2.5 z-20 hidden group-hover/card:flex items-center gap-x-0.5 p-1
-                      rounded-[10px] border-[0.5px] border-components-actionbar-border bg-components-actionbar-bg shadow-md backdrop-blur-[5px]">
+                <div className="absolute -right-2.5 -top-2 z-20 hidden items-center gap-x-0.5 rounded-[10px] border-[0.5px]
+                      border-components-actionbar-border bg-components-actionbar-bg p-1 shadow-md backdrop-blur-[5px] group-hover/card:flex">
                   {!archived && (
                     <>
                       <Tooltip
@@ -162,25 +160,25 @@ const SegmentCard: FC<ISegmentCardProps> = ({
                         popupClassName='text-text-secondary system-xs-medium'
                       >
                         <div
-                          className='shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-state-base-hover cursor-pointer'
+                          className='flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-state-base-hover'
                           onClick={(e) => {
                             e.stopPropagation()
                             onClickEdit?.()
                           }}>
-                          <RiEditLine className='w-4 h-4 text-text-tertiary' />
+                          <RiEditLine className='h-4 w-4 text-text-tertiary' />
                         </div>
                       </Tooltip>
                       <Tooltip
                         popupContent='Delete'
                         popupClassName='text-text-secondary system-xs-medium'
                       >
-                        <div className='shrink-0 w-6 h-6 flex items-center justify-center rounded-lg hover:bg-state-destructive-hover cursor-pointer group/delete'
+                        <div className='group/delete flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-state-destructive-hover'
                           onClick={(e) => {
                             e.stopPropagation()
                             setShowModal(true)
                           }
                           }>
-                          <RiDeleteBinLine className='w-4 h-4 text-text-tertiary group-hover/delete:text-text-destructive' />
+                          <RiDeleteBinLine className='h-4 w-4 text-text-tertiary group-hover/delete:text-text-destructive' />
                         </div>
                       </Tooltip>
                       <Divider type="vertical" className="h-3.5 bg-divider-regular" />
@@ -223,22 +221,22 @@ const SegmentCard: FC<ISegmentCardProps> = ({
         isFullDocMode
           ? <button
             type='button'
-            className='mt-0.5 mb-2 text-text-accent system-xs-semibold-uppercase'
+            className='system-xs-semibold-uppercase mb-2 mt-0.5 text-text-accent'
             onClick={() => onClick?.()}
           >{t('common.operation.viewMore')}</button>
           : null
       }
       {
         isParagraphMode && child_chunks.length > 0
-          && <ChildSegmentList
-            parentChunkId={id}
-            childChunks={child_chunks}
-            enabled={enabled}
-            onDelete={onDeleteChildChunk!}
-            handleAddNewChildChunk={handleAddNewChildChunk}
-            onClickSlice={onClickSlice}
-            focused={focused.segmentContent}
-          />
+        && <ChildSegmentList
+          parentChunkId={id}
+          childChunks={child_chunks}
+          enabled={enabled}
+          onDelete={onDeleteChildChunk!}
+          handleAddNewChildChunk={handleAddNewChildChunk}
+          onClickSlice={onClickSlice}
+          focused={focused.segmentContent}
+        />
       }
       {showModal
         && <Confirm

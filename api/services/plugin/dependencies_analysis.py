@@ -1,6 +1,13 @@
+import re
+
+from configs import dify_config
 from core.helper import marketplace
-from core.plugin.entities.plugin import GenericProviderID, PluginDependency, PluginInstallationSource
-from core.plugin.manager.plugin import PluginInstallationManager
+from core.plugin.entities.plugin import PluginDependency, PluginInstallationSource
+from core.plugin.impl.plugin import PluginInstaller
+from models.provider_ids import ModelProviderID, ToolProviderID
+
+# Compile regex pattern for version extraction at module level for better performance
+_VERSION_REGEX = re.compile(r":(?P<version>[0-9]+(?:\.[0-9]+){2}(?:[+-][0-9A-Za-z.-]+)?)(?:@|$)")
 
 
 class DependenciesAnalysisService:
@@ -12,10 +19,7 @@ class DependenciesAnalysisService:
         Convert the tool id to the plugin_id
         """
         try:
-            tool_provider_id = GenericProviderID(tool_id)
-            if tool_id in ["jina", "siliconflow"]:
-                tool_provider_id.plugin_name = tool_provider_id.plugin_name + "_tool"
-            return tool_provider_id.plugin_id
+            return ToolProviderID(tool_id).plugin_id
         except Exception as e:
             raise e
 
@@ -27,11 +31,7 @@ class DependenciesAnalysisService:
         Convert the model provider id to the plugin_id
         """
         try:
-            generic_provider_id = GenericProviderID(model_provider_id)
-            if model_provider_id == "google":
-                generic_provider_id.plugin_name = "gemini"
-
-            return generic_provider_id.plugin_id
+            return ModelProviderID(model_provider_id).plugin_id
         except Exception as e:
             raise e
 
@@ -44,7 +44,7 @@ class DependenciesAnalysisService:
         for dependency in dependencies:
             required_plugin_unique_identifiers.append(dependency.value.plugin_unique_identifier)
 
-        manager = PluginInstallationManager()
+        manager = PluginInstaller()
 
         # get leaked dependencies
         missing_plugins = manager.fetch_missing_dependencies(tenant_id, required_plugin_unique_identifiers)
@@ -54,6 +54,13 @@ class DependenciesAnalysisService:
         for dependency in dependencies:
             unique_identifier = dependency.value.plugin_unique_identifier
             if unique_identifier in missing_plugin_unique_identifiers:
+                # Extract version for Marketplace dependencies
+                if dependency.type == PluginDependency.Type.Marketplace:
+                    version_match = _VERSION_REGEX.search(unique_identifier)
+                    if version_match:
+                        dependency.value.version = version_match.group("version")
+
+                # Create and append the dependency (same for all types)
                 leaked_dependencies.append(
                     PluginDependency(
                         type=dependency.type,
@@ -70,7 +77,7 @@ class DependenciesAnalysisService:
         Generate dependencies through the list of plugin ids
         """
         dependencies = list(set(dependencies))
-        manager = PluginInstallationManager()
+        manager = PluginInstaller()
         plugins = manager.fetch_plugin_installation_by_ids(tenant_id, dependencies)
         result = []
         for plugin in plugins:
@@ -118,6 +125,8 @@ class DependenciesAnalysisService:
         Generate the latest version of dependencies
         """
         dependencies = list(set(dependencies))
+        if not dify_config.MARKETPLACE_ENABLED:
+            return []
         deps = marketplace.batch_fetch_plugin_manifests(dependencies)
         return [
             PluginDependency(
